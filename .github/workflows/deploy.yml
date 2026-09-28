@@ -1,61 +1,61 @@
-# name: Deploy Backend Komkom
+name: Deploy Backend Komkom
 
-# on:
-#   push:
-#     branches: [main]
+on:
+  push:
+    branches: [main]
 
-# permissions:
-#   contents: read
-#   packages: write
+permissions:
+  contents: read
+  packages: write
 
-# jobs:
-#   build-and-push:
-#     runs-on: ubuntu-latest
-#     outputs:
-#       sha: ${{ steps.vars.outputs.sha }}
-#     steps:
-#       - uses: actions/checkout@v4
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
 
-#       - id: vars
-#         run: echo "sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+      - id: vars
+        run: echo "sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-#       - uses: docker/login-action@v3
-#         with:
-#           registry: ghcr.io
-#           username: ${{ github.actor }}
-#           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-#       - uses: docker/build-push-action@v5
-#         with:
-#           context: .
-#           push: true
-#           tags: |
-#             ghcr.io/app-niangdev/komkom-back:latest
-#             ghcr.io/app-niangdev/komkom-back:${{ steps.vars.outputs.sha }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/app-niangdev/backend-komkom:latest
+            ghcr.io/app-niangdev/backend-komkom:${{ steps.vars.outputs.sha }}
 
-#   deploy:
-#     needs: build-and-push
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: appleboy/ssh-action@v1
-#         with:
-#           host: ${{ secrets.VPS_HOST }}
-#           username: ${{ secrets.VPS_USER }}
-#           key: ${{ secrets.VPS_SSH_KEY }}
-#           script: |
-#             cd /opt/komkom
-#             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-#             docker compose pull backend
-#             docker compose up -d
-#             docker compose exec -T backend php artisan migrate --force
-#             docker compose exec -T backend php artisan db:seed --force
-#             docker compose exec -T backend php artisan storage:link
-#             docker compose exec -T backend php artisan optimize
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/komkom
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+            docker compose pull backend
+            docker compose up -d
+            docker compose exec -T backend php artisan migrate --force
+            docker compose exec -T backend php artisan db:seed --force
+            docker compose exec -T backend php artisan storage:link
+            docker compose exec -T backend php artisan optimize
 
-#       - uses: appleboy/ssh-action@v1
-#         with:
-#           host: ${{ secrets.VPS_HOST }}
-#           username: ${{ secrets.VPS_USER }}
-#           key: ${{ secrets.VPS_SSH_KEY }}
-#           script: |
-#             curl -sf http://localhost:8082/up || (echo "Healthcheck failed" && exit 1)
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            curl -sf http://localhost:8082/up || (echo "Healthcheck failed" && exit 1)
