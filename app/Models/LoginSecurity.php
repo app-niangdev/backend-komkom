@@ -40,6 +40,7 @@ class LoginSecurity extends Model
             return 0;
         }
 
-        return max(0, Carbon::now()->diffInSeconds($this->blocked_until, false));
+        // Carbon 3 renvoie des secondes décimales : arrondi au-dessus (jamais « 0 » tant que c'est bloqué)
+        return max(0, (int) ceil(Carbon::now()->diffInSeconds($this->blocked_until, false)));
     }
 }

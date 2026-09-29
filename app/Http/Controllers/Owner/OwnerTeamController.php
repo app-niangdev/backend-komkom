@@ -10,11 +10,14 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\JwtService;
 use App\Services\OwnerScopeService;
+use App\Services\SecurityLogger;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 
 /**
@@ -76,6 +79,7 @@ class OwnerTeamController extends Controller
                 'email' => $validated['email'],
                 // Mot de passe initial : à changer par l'utilisateur depuis « Mon profil »
                 'password' => Hash::make('password'),
+                'must_change_password' => true,
                 'role_id' => $role->id,
                 'type' => strtolower($role->name),
                 'status' => true,
@@ -153,6 +157,82 @@ class OwnerTeamController extends Controller
             'message' => $user->status ? 'Compte réactivé.' : 'Compte désactivé : l\'accès est coupé.',
             'data' => $this->present($this->fresh($user), $request->user()),
         ]);
+    }
+
+    /**
+     * Réinitialise l'accès d'un membre (propriétaire : tous ; gérant : ses vendeurs).
+     *  - « password » : mot de passe temporaire renvoyé une seule fois, sessions ouvertes fermées,
+     *    changement obligatoire à la prochaine connexion ;
+     *  - « link » : lien de réinitialisation envoyé à l'adresse e-mail du membre.
+     */
+    public function resetAccess(Request $request, $id, JwtService $jwt, SecurityLogger $journal)
+    {
+        $user = $this->manageableMember($request, $id);
+        $validated = $request->validate(
+            ['method' => 'required|in:password,link'],
+            ['method.required' => 'Choisissez comment réinitialiser l\'accès.', 'method.in' => 'Méthode de réinitialisation inconnue.']
+        );
+        $context = ['by' => $request->user()->id, 'method' => $validated['method']];
+
+        if ($validated['method'] === 'link') {
+            try {
+                $status = Password::broker('users')->sendResetLink(['email' => $user->email]);
+            } catch (\Throwable $e) {
+                Log::error('Lien de réinitialisation non envoyé : ' . $e->getMessage());
+                $status = null;
+            }
+            if ($status !== Password::RESET_LINK_SENT) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $status === Password::RESET_THROTTLED
+                        ? 'Un lien vient déjà d\'être envoyé : patientez une minute avant de recommencer.'
+                        : 'L\'e-mail n\'a pas pu être envoyé. Réessayez, ou générez un mot de passe temporaire.',
+                ], 422);
+            }
+            $journal->log(SecurityLogger::ACCESS_RESET, $user->id, $context);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Lien de réinitialisation envoyé à ' . $user->email . ' (valable ' . config('auth.passwords.users.expire', 60) . ' minutes).',
+            ]);
+        }
+
+        $temporary = $this->temporaryPassword();
+        DB::transaction(function () use ($user, $temporary, $jwt) {
+            $user->forceFill([
+                'password' => Hash::make($temporary),
+                'must_change_password' => true,
+            ])->save();
+            // L'ancien mot de passe ne sert plus : les sessions ouvertes sont fermées
+            $jwt->revokeAllForUser($user->id);
+        });
+        $journal->log(SecurityLogger::ACCESS_RESET, $user->id, $context);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Accès réinitialisé : ' . $user->full_name . ' devra choisir un nouveau mot de passe à sa prochaine connexion.',
+            'temporary_password' => $temporary,
+            'login' => $user->email,
+        ]);
+    }
+
+    /** 10 caractères lisibles (sans 0/O, 1/l/I), au moins une lettre et un chiffre. */
+    private function temporaryPassword(): string
+    {
+        $letters = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ';
+        $digits = '23456789';
+        $all = $letters . $digits;
+        $chars = [$letters[random_int(0, strlen($letters) - 1)], $digits[random_int(0, strlen($digits) - 1)]];
+        while (count($chars) < 10) {
+            $chars[] = $all[random_int(0, strlen($all) - 1)];
+        }
+        // Mélange cryptographiquement sûr (Fisher-Yates)
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$chars[$i], $chars[$j]] = [$chars[$j], $chars[$i]];
+        }
+
+        return implode('', $chars);
     }
 
     /**
@@ -275,6 +355,8 @@ class OwnerTeamController extends Controller
             'address' => $u->address,
             'gender' => $u->gender,
             'status' => (bool) $u->status,
+            // Mot de passe temporaire pas encore changé par le membre
+            'must_change_password' => (bool) $u->must_change_password,
             'role' => $u->role?->name,
             'store' => $store ? ['id' => $store->id, 'name' => $store->name] : null,
             'image_url' => $u->image_url,

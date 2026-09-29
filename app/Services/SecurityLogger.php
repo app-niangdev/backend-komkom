@@ -21,6 +21,7 @@ class SecurityLogger
     public const OTP_VERIFIED = 'otp_verified';
     public const OTP_FAILED = 'otp_failed';
     public const PASSWORD_CHANGED = 'password_changed';
+    public const ACCESS_RESET = 'access_reset';
 
     public function log(string $event, ?int $userId = null, array $context = []): void
     {

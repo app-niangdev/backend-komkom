@@ -19,5 +19,5 @@ return [
     'ssr_rate_per_minute' => (int) env('STOREFRONT_SSR_RATE_PER_MINUTE', 3000),
 
     // Slugs interdits : ils entreraient en conflit avec des pages de la vitrine
-    'reserved_slugs' => ['api', 'admin', 'www', 'app', 'assets', 'static', 'panier', 'cart', 'boutique', 'boutiques', 'aide', 'contact'],
+    'reserved_slugs' => ['api', 'admin', 'www', 'app', 'assets', 'static', 'panier', 'cart', 'boutique', 'boutiques', 'aide', 'contact', 'healthz'],
 ];

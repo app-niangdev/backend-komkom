@@ -91,6 +91,7 @@ class ProfileController extends Controller
         }
 
         $user->password = Hash::make($validated['new_password']);
+        $user->must_change_password = false;
         $user->save();
 
         // Toutes les sessions du compte (tous appareils) sont fermées

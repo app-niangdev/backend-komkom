@@ -24,15 +24,25 @@ class Store extends Model implements HasMedia
         'email',
         'active',
         'uses_measurements',
+        'uses_serial_numbers',
+        'ticket_width',
         'use_company_logo',
         'use_company_colors',
         'primary_color',
         'secondary_color',
     ];
 
+    /** Largeurs de rouleau prises en charge pour les tickets de caisse (mm). */
+    public const TICKET_WIDTHS = [58, 80];
+
+    public const SERIALS_IN_USE_MESSAGE = 'Des produits de la boutique sont suivis par numéro de série : '
+        . 'retirez d\'abord ce suivi (ou supprimez ces produits) avant de désactiver les numéros de série.';
+
     protected $casts = [
         'active' => 'boolean',
         'uses_measurements' => 'boolean',
+        'uses_serial_numbers' => 'boolean',
+        'ticket_width' => 'integer',
         'use_company_logo' => 'boolean',
         'use_company_colors' => 'boolean',
         // Vitrine : modifiables uniquement par l'administrateur (hors $fillable, via StorefrontService)
@@ -95,6 +105,15 @@ class Store extends Model implements HasMedia
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class)->orderBy('starts_at');
+    }
+
+    /**
+     * Des produits suivis par numéro de série existent : on ne peut pas désactiver
+     * les numéros de série de la boutique (leurs IMEI deviendraient invisibles).
+     */
+    public function hasSerialProducts(): bool
+    {
+        return $this->products()->where('require_serial_number', true)->exists();
     }
 
     public function products()

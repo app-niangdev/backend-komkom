@@ -2,67 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\JwtService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
 class ResetPasswordController extends Controller
 {
+    public function __construct(protected JwtService $jwtService)
+    {
+    }
+
     public function reset(Request $request)
     {
-        Log::info('Données brutes reçues', [
-            'all' => $request->all(),
-            'token' => $request->token,
-            'email' => $request->email
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|confirmed|min:8',
+        ], [
+            'token.required' => 'Lien de réinitialisation incomplet : redemandez un lien.',
+            'email.required' => 'Lien de réinitialisation incomplet : redemandez un lien.',
+            'email.email' => 'Lien de réinitialisation invalide : redemandez un lien.',
+            'password.required' => 'Le nouveau mot de passe est obligatoire.',
+            'password.confirmed' => 'Les deux mots de passe ne correspondent pas.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
         ]);
-
-        try {
-            $request->validate([
-                'token' => 'required',
-                'email' => 'required|email',
-                'password' => 'required|confirmed|min:8',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Erreur de validation', [
-                'errors' => $e->errors()
-            ]);
-            throw $e;
-        }
-
-        Log::info('Validation réussie, tentative de réinitialisation');
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
-                Log::info('Utilisateur trouvé, mise à jour du mot de passe', [
-                    'user_id' => $user->id,
-                    'email' => $user->email
-                ]);
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                    'must_change_password' => false,
+                ])->save();
 
-                try {
-                    $user->forceFill([
-                        'password' => Hash::make($password),
-                        'remember_token' => Str::random(60),
-                    ])->save();
+                // Mot de passe changé : les sessions ouvertes ailleurs sont fermées
+                $this->jwtService->revokeAllForUser($user->id);
 
-                    event(new PasswordReset($user));
-                    Log::info('Mot de passe mis à jour avec succès');
-                } catch (\Exception $e) {
-                    Log::error('Erreur lors de la mise à jour du mot de passe', [
-                        'error' => $e->getMessage()
-                    ]);
-                    throw $e;
-                }
+                event(new PasswordReset($user));
             }
         );
 
-        Log::info('Statut de la réinitialisation', ['status' => $status]);
-
-        return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => 'Réinitialisation du mot de passe réussie'])
-            : response()->json(['message' => 'Impossible de réinitialiser le mot de passe'], 400);
+        return match ($status) {
+            Password::PASSWORD_RESET => response()->json(['message' => 'Mot de passe réinitialisé : vous pouvez vous connecter.']),
+            Password::INVALID_TOKEN => response()->json(['message' => 'Ce lien a expiré ou a déjà été utilisé : redemandez un lien de réinitialisation.'], 400),
+            default => response()->json(['message' => 'Impossible de réinitialiser le mot de passe : redemandez un lien.'], 400),
+        };
     }
 }

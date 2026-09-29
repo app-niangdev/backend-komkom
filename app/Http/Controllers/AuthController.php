@@ -59,6 +59,11 @@ class AuthController extends Controller
                 $etat = $this->securite->enregistrerEchec($ip);
                 $seuil = (int) config('login_security.max_attempts', 5);
 
+                // Cet échec vient de déclencher le blocage : on donne tout de suite le délai d'attente
+                if ($etat->isBlocked()) {
+                    return $this->securite->reponseBlocage($etat);
+                }
+
                 return response()->json([
                     'status' => false,
                     'code' => 'INVALID_CREDENTIALS',

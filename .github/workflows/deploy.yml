@@ -47,8 +47,7 @@ jobs:
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
             docker compose pull backend
             docker compose up -d backend
-            docker compose exec -T backend php artisan migrate:fresh --force
-            docker compose exec -T backend php artisan db:seed --force
+            docker compose exec -T backend php artisan migrate --force
             docker compose exec -T backend php artisan storage:link
             docker compose exec -T backend php artisan optimize
 

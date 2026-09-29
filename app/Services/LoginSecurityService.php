@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\LoginSecurity;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -70,6 +71,25 @@ class LoginSecurityService
 
             return $etat;
         });
+    }
+
+    /**
+     * Réponse 429 d'une IP bloquée : `retry_after` (secondes) permet au front
+     * d'afficher le temps d'attente restant en décompte.
+     */
+    public function reponseBlocage(LoginSecurity $etat): JsonResponse
+    {
+        $retryAfter = $etat->retryAfter();
+
+        return response()->json([
+            'status' => false,
+            'code' => 'IP_BLOCKED',
+            'message' => 'Trop de tentatives de connexion. Veuillez patienter.',
+            'blocked_until' => $etat->blocked_until->toIso8601String(),
+            'retry_after' => $retryAfter,
+        ], 429)->withHeaders([
+            'Retry-After' => (string) $retryAfter,
+        ]);
     }
 
     public function reinitialiser(string $ip): void

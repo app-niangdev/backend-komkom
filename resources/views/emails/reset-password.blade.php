@@ -91,7 +91,7 @@
                 </a>
             </div>
 
-            <p>Ce lien expirera dans <strong>60 minutes</strong>.</p>
+            <p>Ce lien expirera dans <strong>{{ $expireMinutes ?? 60 }} minutes</strong>.</p>
 
             <p>
                 Si vous n'êtes pas à l'origine de cette demande,

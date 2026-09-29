@@ -55,6 +55,12 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | URL du front Angular (liens des e-mails). Lue ici et non via env() dans le code :
+    | en production la config est mise en cache et env() y renvoie null.
+    */
+    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:4200'), '/'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

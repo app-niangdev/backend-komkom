@@ -33,6 +33,7 @@ class ProductCatalogService
     {
         return DB::transaction(function () use ($store, $data, $image, $imageUrl) {
             $this->checkIdentity($store, $data);
+            $this->checkSerialAllowed($store, (bool) $data['require_serial_number']);
             $units = $this->normalizeUnits($store, $data);
 
             $product = Product::create([
@@ -64,6 +65,9 @@ class ProductCatalogService
 
             $this->checkIdentity($store, $data, $product->id);
             $this->checkSerialSwitch($product, (bool) $data['require_serial_number']);
+            if (!$product->require_serial_number) {
+                $this->checkSerialAllowed($store, (bool) $data['require_serial_number']);
+            }
             $units = $this->normalizeUnits($store, $data);
 
             // Le stock est compté dans l'unité de base : elle ne change pas tant qu'il en reste
@@ -137,6 +141,14 @@ class ProductCatalogService
 
         if (!empty($data['category_id']) && !Category::where('store_id', $store->id)->whereKey($data['category_id'])->exists()) {
             $this->fail('category_id', 'Cette catégorie n\'appartient pas à la boutique.');
+        }
+    }
+
+    /** Boutique qui n'utilise pas les numéros de série : aucun produit ne peut en demander. */
+    private function checkSerialAllowed(Store $store, bool $requireSerial): void
+    {
+        if ($requireSerial && !($store->uses_serial_numbers ?? true)) {
+            $this->fail('require_serial_number', 'La boutique « ' . $store->name . ' » n\'utilise pas les numéros de série.');
         }
     }
 

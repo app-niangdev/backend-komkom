@@ -149,6 +149,8 @@ class OwnerInvoiceController extends Controller
                     'email' => $store?->email,
                     'logo_url' => $store?->logo_url,
                     'color' => $store?->effective_primary_color,
+                    // Rouleau de l'imprimante ticket de la boutique (mm)
+                    'ticket_width' => (int) ($store?->ticket_width ?? 80),
                 ],
             ],
             'currency' => config('subscriptions.default_currency', 'XOF'),

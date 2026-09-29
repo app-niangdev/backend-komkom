@@ -151,6 +151,7 @@ class OwnerProductController extends Controller
             'base_unit' => $product->base_unit,
             'stock' => (float) $product->base_unit_quantity,
             'uses_measurements' => (bool) ($product->store?->uses_measurements ?? true),
+            'uses_serial_numbers' => (bool) ($product->store?->uses_serial_numbers ?? true),
             'units' => $product->unitOfMeasures->sortByDesc('is_base_unit')->map(fn ($u) => [
                 'id' => $u->id,
                 'name' => $u->name,

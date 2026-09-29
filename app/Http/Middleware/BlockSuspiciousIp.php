@@ -37,14 +37,6 @@ class BlockSuspiciousIp
             'retry_after' => $retryAfter,
         ]);
 
-        return response()->json([
-            'status' => false,
-            'code' => 'IP_BLOCKED',
-            'message' => 'Trop de tentatives de connexion. Veuillez patienter.',
-            'blocked_until' => $etat->blocked_until->toIso8601String(),
-            'retry_after' => $retryAfter,
-        ], 429)->withHeaders([
-            'Retry-After' => (string) $retryAfter,
-        ]);
+        return $this->securite->reponseBlocage($etat);
     }
 }

@@ -95,6 +95,8 @@ class StoreController extends Controller
                 'phone_three' => 'nullable|string',
                 'email' => 'nullable|email',
                 'uses_measurements' => 'sometimes|boolean',
+                'uses_serial_numbers' => 'sometimes|boolean',
+                'ticket_width' => 'sometimes|in:58,80',
                 'use_company_logo' => 'sometimes|boolean',
                 'use_company_colors' => 'sometimes|boolean',
                 'primary_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
@@ -125,6 +127,7 @@ class StoreController extends Controller
             unset($validatedData['logo']);
             $validatedData['active'] = true;
             $validatedData['uses_measurements'] = $validatedData['uses_measurements'] ?? true;
+            $validatedData['uses_serial_numbers'] = $validatedData['uses_serial_numbers'] ?? true;
             $validatedData['use_company_logo'] = $validatedData['use_company_logo'] ?? true;
             $validatedData['use_company_colors'] = $validatedData['use_company_colors'] ?? true;
             $store = Store::create($validatedData);
@@ -167,6 +170,8 @@ class StoreController extends Controller
                 'phone_three' => 'nullable|string',
                 'email' => 'nullable|email',
                 'uses_measurements' => 'sometimes|boolean',
+                'uses_serial_numbers' => 'sometimes|boolean',
+                'ticket_width' => 'sometimes|in:58,80',
                 'use_company_logo' => 'sometimes|boolean',
                 'use_company_colors' => 'sometimes|boolean',
                 'primary_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
@@ -199,6 +204,15 @@ class StoreController extends Controller
 
             $validatedData = $validator->validated();
             unset($validatedData['logo']);
+
+            if (!$request->boolean('uses_serial_numbers', true) && $store->uses_serial_numbers && $store->hasSerialProducts()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => ['uses_serial_numbers' => [Store::SERIALS_IN_USE_MESSAGE]],
+                ], 422);
+            }
+
             $store->update($validatedData);
 
             // Validation et mise à jour du logo propre au store

@@ -104,6 +104,8 @@ class OwnerStatsService
                 'address' => $store->address,
                 'phone_one' => $store->phone_one,
                 'active' => (bool) $store->active,
+                'uses_serial_numbers' => (bool) ($store->uses_serial_numbers ?? true),
+                'ticket_width' => (int) ($store->ticket_width ?? 80),
                 'logo_url' => $store->logo_url,
                 'primary_color' => $store->effective_primary_color,
                 'subscription' => $this->subscriptions->statusForStore($store),

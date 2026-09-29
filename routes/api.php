@@ -91,8 +91,8 @@ Route::middleware(['throttle:5,1'])->group(function () {
 Route::get('/email/verify/{id}/{hash}', [EmailVerifyController::class, 'verify'])->name('verification.verify');
 Route::post('/email/resend', [EmailVerifyController::class, 'resend'])->name('verification.resend');
 
-Route::get('reset-password/{token}', function (string $token) {
-    return redirect(env('FRONTEND_URL') . '/reset-password?token=' . $token);
+Route::get('reset-password/{token}', function (Request $request, string $token) {
+    return redirect(\App\Notifications\ResetPasswordNotification::resetUrl($token, $request->query('email')));
 })->name('password.reset');
 
 // Route pour envoyer l'email de vérification
@@ -206,6 +206,7 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         Route::post('/team', [OwnerTeamController::class, 'store']);
         Route::put('/team/{id}', [OwnerTeamController::class, 'update'])->whereNumber('id');
         Route::patch('/team/{id}/status', [OwnerTeamController::class, 'toggleStatus'])->whereNumber('id');
+        Route::post('/team/{id}/reset-access', [OwnerTeamController::class, 'resetAccess'])->whereNumber('id')->middleware('throttle:10,1');
         Route::delete('/team/{id}', [OwnerTeamController::class, 'destroy'])->whereNumber('id');
     };
 
@@ -213,6 +214,7 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
     Route::prefix('owner')->middleware('role:Owner')->group(function () use ($storeModules) {
         $storeModules();
         Route::get('/stores', [OwnerDashboardController::class, 'stores']);
+        Route::patch('/stores/{id}/settings', [OwnerDashboardController::class, 'updateSettings'])->whereNumber('id');
         Route::get('/company', [OwnerCompanyController::class, 'show']);
         Route::post('/company', [OwnerCompanyController::class, 'update']);
     });

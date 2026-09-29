@@ -29,6 +29,7 @@ class User extends Authenticatable implements CanResetPassword, HasMedia
         'last_name',
         'email',
         'password',
+        'must_change_password',
         'status',
         'role_id',
         'type',
@@ -111,6 +112,7 @@ class User extends Authenticatable implements CanResetPassword, HasMedia
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
         ];
     }
 

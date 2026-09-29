@@ -1,10 +1,9 @@
 <?php
-// App\Notifications\ResetPasswordNotification.php
+
 namespace App\Notifications;
 
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Lang;
 
 class ResetPasswordNotification extends Notification
 {
@@ -17,17 +16,20 @@ class ResetPasswordNotification extends Notification
 
     public function toMail($notifiable): MailMessage
     {
-        $resetUrl = env('FRONTEND_URL')
-            . '/reset-password?token='
-            . $this->token
-            . '&email='
-            . urlencode($notifiable->getEmailForPasswordReset());
-
         return (new MailMessage)
             ->subject('Réinitialisation de votre mot de passe - KomKom')
             ->view('emails.reset-password', [
-                'user'     => $notifiable,
-                'resetUrl' => $resetUrl,
+                'user' => $notifiable,
+                'resetUrl' => self::resetUrl($this->token, $notifiable->getEmailForPasswordReset()),
+                'expireMinutes' => (int) config('auth.passwords.users.expire', 60),
             ]);
+    }
+
+    /** Page Angular de saisie du nouveau mot de passe (route /auth/reset-password). */
+    public static function resetUrl(string $token, ?string $email = null): string
+    {
+        $query = http_build_query(array_filter(['token' => $token, 'email' => $email]));
+
+        return config('app.frontend_url') . '/auth/reset-password?' . $query;
     }
 }
