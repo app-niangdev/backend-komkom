@@ -215,6 +215,9 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         $storeModules();
         Route::get('/stores', [OwnerDashboardController::class, 'stores']);
         Route::patch('/stores/{id}/settings', [OwnerDashboardController::class, 'updateSettings'])->whereNumber('id');
+        Route::get('/stores/{id}', [\App\Http\Controllers\Owner\OwnerStoreController::class, 'show'])->whereNumber('id');
+        // POST (et non PUT) : formulaire multipart avec logo
+        Route::post('/stores/{id}', [\App\Http\Controllers\Owner\OwnerStoreController::class, 'update'])->whereNumber('id');
         Route::get('/company', [OwnerCompanyController::class, 'show']);
         Route::post('/company', [OwnerCompanyController::class, 'update']);
     });
