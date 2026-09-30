@@ -152,7 +152,6 @@ class OwnerPosController extends Controller
             $validated['payment']
         );
         $sale->load('invoice');
-        $whatsapp = $this->whatsapp->queueInvoice($sale->invoice);
 
         return response()->json([
             'message' => $sale->invoice->balance > 0
@@ -166,8 +165,8 @@ class OwnerPosController extends Controller
                 'total_amount' => (float) $sale->total_amount,
                 'amount_paid' => (float) $sale->invoice->amount_paid,
                 'balance' => (float) $sale->invoice->balance,
-                // Facture envoyée au client sur WhatsApp (après la réponse)
-                'whatsapp_sent' => $whatsapp,
+                // Bouton « Envoyer WhatsApp » : boutique activée et client avec un numéro exploitable
+                'whatsapp_available' => $this->whatsapp->available($sale->invoice),
             ],
         ], 201);
     }

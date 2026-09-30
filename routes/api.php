@@ -166,6 +166,7 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         Route::get('/payments/export-pdf', [OwnerPaymentController::class, 'exportPdf']);
         Route::get('/invoices/{id}', [OwnerInvoiceController::class, 'show'])->whereNumber('id');
         Route::post('/invoices/{id}/payments', [OwnerInvoiceController::class, 'pay'])->whereNumber('id');
+        Route::post('/invoices/{id}/whatsapp', [OwnerInvoiceController::class, 'whatsapp'])->whereNumber('id')->middleware('throttle:20,1');
         Route::get('/products', [OwnerCatalogController::class, 'products']);
         Route::post('/products', [OwnerProductController::class, 'store']);
         Route::get('/products/{id}', [OwnerProductController::class, 'show'])->whereNumber('id');
@@ -241,6 +242,7 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         Route::get('/invoices', [OwnerInvoiceController::class, 'index']);
         Route::get('/invoices/{id}', [OwnerInvoiceController::class, 'show'])->whereNumber('id');
         Route::post('/invoices/{id}/payments', [OwnerInvoiceController::class, 'pay'])->whereNumber('id');
+        Route::post('/invoices/{id}/whatsapp', [OwnerInvoiceController::class, 'whatsapp'])->whereNumber('id')->middleware('throttle:20,1');
         Route::get('/payments', [OwnerPaymentController::class, 'index']);
         Route::get('/payments/export', [OwnerPaymentController::class, 'export']);
         Route::get('/payments/export-pdf', [OwnerPaymentController::class, 'exportPdf']);

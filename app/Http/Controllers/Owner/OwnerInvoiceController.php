@@ -11,7 +11,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Factures & reçus : suivi des factures de la période, reste à encaisser, encaissement
@@ -199,6 +201,28 @@ class OwnerInvoiceController extends Controller
                 'whatsapp_sent' => $whatsapp,
             ],
         ], 201);
+    }
+
+    /** Envoi de la facture au client sur WhatsApp (confirmation du vendeur après la vente). */
+    public function whatsapp(Request $request, $id)
+    {
+        $invoice = $this->find($request, $id);
+
+        if (!$this->whatsapp->available($invoice)) {
+            throw ValidationException::withMessages([
+                'whatsapp' => 'Envoi WhatsApp indisponible : service non activé pour cette boutique ou client sans numéro valide.',
+            ]);
+        }
+
+        try {
+            $this->whatsapp->deliver($invoice);
+        } catch (\Throwable $e) {
+            Log::warning('Envoi WhatsApp de la facture impossible', ['invoice_id' => $invoice->id, 'error' => $e->getMessage()]);
+
+            return response()->json(['message' => 'L\'envoi WhatsApp a échoué. Réessayez dans un instant.'], 502);
+        }
+
+        return response()->json(['message' => 'Facture envoyée au client sur WhatsApp.']);
     }
 
     /** Facture d'une boutique accessible du périmètre (d'une vente du vendeur connecté), sinon 404. */
