@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Services\OwnerScopeService;
 use App\Services\SaleService;
+use App\Services\WhatsappInvoiceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,7 +19,11 @@ use Illuminate\Validation\Rule;
  */
 class OwnerInvoiceController extends Controller
 {
-    public function __construct(protected OwnerScopeService $scope, protected SaleService $sales)
+    public function __construct(
+        protected OwnerScopeService $scope,
+        protected SaleService $sales,
+        protected WhatsappInvoiceService $whatsapp
+    )
     {
     }
 
@@ -177,16 +182,21 @@ class OwnerInvoiceController extends Controller
             $validated['date'],
             $request->user()
         );
+        $receipt = $invoice->paymentReceipts()->latest('id')->first();
+        $whatsapp = $receipt && $this->whatsapp->queueReceipt($receipt);
 
         return response()->json([
-            'message' => $invoice->balance > 0
+            'message' => ($invoice->balance > 0
                 ? 'Paiement enregistré. Reste à payer : ' . number_format($invoice->balance, 0, ',', ' ') . '.'
-                : 'Paiement enregistré : la facture est soldée.',
+                : 'Paiement enregistré : la facture est soldée.')
+                . ($whatsapp ? ' Le reçu est envoyé au client sur WhatsApp.' : ''),
             'data' => [
                 'id' => $invoice->id,
                 'amount_paid' => (float) $invoice->amount_paid,
                 'balance' => (float) $invoice->balance,
                 'status' => $invoice->invoice_status,
+                // Reçu envoyé au client sur WhatsApp (après la réponse)
+                'whatsapp_sent' => $whatsapp,
             ],
         ], 201);
     }

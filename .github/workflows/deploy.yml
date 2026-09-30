@@ -48,6 +48,8 @@ jobs:
             docker compose pull backend
             docker compose up -d backend
             docker compose exec -T backend php artisan migrate --force
+            # Menus par rôle (table menus) : idempotent, ajoute les nouvelles entrées à chaque déploiement
+            docker compose exec -T backend php artisan db:seed --class=MenuSeeder --force
             docker compose exec -T backend php artisan storage:link
             docker compose exec -T backend php artisan optimize
 

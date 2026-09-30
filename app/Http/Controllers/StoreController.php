@@ -97,6 +97,7 @@ class StoreController extends Controller
                 'uses_measurements' => 'sometimes|boolean',
                 'uses_serial_numbers' => 'sometimes|boolean',
                 'ticket_width' => 'sometimes|in:58,80',
+                'whatsapp_invoices_enabled' => 'sometimes|boolean',
                 'use_company_logo' => 'sometimes|boolean',
                 'use_company_colors' => 'sometimes|boolean',
                 'primary_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
@@ -130,7 +131,11 @@ class StoreController extends Controller
             $validatedData['uses_serial_numbers'] = $validatedData['uses_serial_numbers'] ?? true;
             $validatedData['use_company_logo'] = $validatedData['use_company_logo'] ?? true;
             $validatedData['use_company_colors'] = $validatedData['use_company_colors'] ?? true;
+            // Hors $fillable : réservé à l'administrateur
+            $whatsapp = $this->isAdmin($request) && (bool) ($validatedData['whatsapp_invoices_enabled'] ?? false);
+            unset($validatedData['whatsapp_invoices_enabled']);
             $store = Store::create($validatedData);
+            $store->forceFill(['whatsapp_invoices_enabled' => $whatsapp])->save();
             app(SubscriptionService::class)->createTrial($store, $request->user()?->id);
 
             // Validation et ajout du logo propre au store, si présent
@@ -172,6 +177,7 @@ class StoreController extends Controller
                 'uses_measurements' => 'sometimes|boolean',
                 'uses_serial_numbers' => 'sometimes|boolean',
                 'ticket_width' => 'sometimes|in:58,80',
+                'whatsapp_invoices_enabled' => 'sometimes|boolean',
                 'use_company_logo' => 'sometimes|boolean',
                 'use_company_colors' => 'sometimes|boolean',
                 'primary_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
@@ -213,6 +219,10 @@ class StoreController extends Controller
                 ], 422);
             }
 
+            if (array_key_exists('whatsapp_invoices_enabled', $validatedData) && $this->isAdmin($request)) {
+                $store->forceFill(['whatsapp_invoices_enabled' => (bool) $validatedData['whatsapp_invoices_enabled']]);
+            }
+            unset($validatedData['whatsapp_invoices_enabled']);
             $store->update($validatedData);
 
             // Validation et mise à jour du logo propre au store
@@ -390,4 +400,9 @@ class StoreController extends Controller
         }
     }
 
+    /** Envoi WhatsApp des factures : seul l'administrateur l'active ou le désactive. */
+    private function isAdmin(Request $request): bool
+    {
+        return $request->user()?->role?->name === 'Admin';
+    }
 }

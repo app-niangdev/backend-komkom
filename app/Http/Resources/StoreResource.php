@@ -22,6 +22,7 @@ class StoreResource extends JsonResource
             'uses_measurements' => $this->uses_measurements,
             'uses_serial_numbers' => $this->uses_serial_numbers,
             'ticket_width' => (int) ($this->ticket_width ?? 80),
+            'whatsapp_invoices_enabled' => (bool) $this->whatsapp_invoices_enabled,
             'use_company_logo' => $this->use_company_logo,
             'use_company_colors' => $this->use_company_colors,
             'primary_color' => $this->primary_color,

@@ -10,6 +10,7 @@ use App\Models\SerialNumber;
 use App\Models\Store;
 use App\Services\OwnerScopeService;
 use App\Services\SaleService;
+use App\Services\WhatsappInvoiceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,11 @@ use Illuminate\Validation\Rule;
  */
 class OwnerPosController extends Controller
 {
-    public function __construct(protected OwnerScopeService $scope, protected SaleService $sales)
+    public function __construct(
+        protected OwnerScopeService $scope,
+        protected SaleService $sales,
+        protected WhatsappInvoiceService $whatsapp
+    )
     {
     }
 
@@ -147,6 +152,7 @@ class OwnerPosController extends Controller
             $validated['payment']
         );
         $sale->load('invoice');
+        $whatsapp = $this->whatsapp->queueInvoice($sale->invoice);
 
         return response()->json([
             'message' => $sale->invoice->balance > 0
@@ -160,6 +166,8 @@ class OwnerPosController extends Controller
                 'total_amount' => (float) $sale->total_amount,
                 'amount_paid' => (float) $sale->invoice->amount_paid,
                 'balance' => (float) $sale->invoice->balance,
+                // Facture envoyée au client sur WhatsApp (après la réponse)
+                'whatsapp_sent' => $whatsapp,
             ],
         ], 201);
     }

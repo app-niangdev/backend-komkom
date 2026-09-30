@@ -29,16 +29,13 @@ class PdfReportService
         $company = $store?->company ?? $stores->first()?->company;
 
         if ($store) {
-            $media = $store->use_company_logo ? null : $store->getFirstMedia('logo');
-            $media ??= $store->company?->getFirstMedia('logo');
-
             return [
                 'name' => $store->name,
                 'company' => $company?->name,
                 'address' => $store->address,
                 'phones' => array_values(array_filter([$store->phone_one, $store->phone_two])),
                 'email' => $store->email,
-                'logo' => $this->dataUri($media?->getPath()),
+                'logo' => $this->storeLogo($store),
                 'color' => $store->effective_primary_color ?: '#1f2937',
                 'scope' => $store->name,
             ];
@@ -98,6 +95,15 @@ class PdfReportService
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    /** Logo de la boutique (ou de son entreprise) en data URI, prêt pour dompdf. */
+    public function storeLogo(Store $store): ?string
+    {
+        $media = $store->use_company_logo ? null : $store->getFirstMedia('logo');
+        $media ??= $store->company?->getFirstMedia('logo');
+
+        return $this->dataUri($media?->getPath());
     }
 
     /** Logo en data URI, réduit à 200 px (il s'affiche en 13 mm) pour ne pas alourdir le PDF. */

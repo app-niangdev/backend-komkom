@@ -43,6 +43,8 @@ class Store extends Model implements HasMedia
         'uses_measurements' => 'boolean',
         'uses_serial_numbers' => 'boolean',
         'ticket_width' => 'integer',
+        // Envoi WhatsApp des factures : modifiable uniquement par l'administrateur (hors $fillable)
+        'whatsapp_invoices_enabled' => 'boolean',
         'use_company_logo' => 'boolean',
         'use_company_colors' => 'boolean',
         // Vitrine : modifiables uniquement par l'administrateur (hors $fillable, via StorefrontService)
