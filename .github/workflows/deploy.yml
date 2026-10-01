@@ -51,7 +51,7 @@ jobs:
             # Menus par rôle (table menus) : idempotent, ajoute les nouvelles entrées à chaque déploiement
             docker compose exec -T backend php artisan db:seed --class=MenuSeeder --force
             docker compose exec -T backend php artisan storage:link
-            docker compose exec -T backend php artisan optimize
+            docker compose exec -T backend php artisan optimize:clear
 
       - uses: appleboy/ssh-action@v1
         with:

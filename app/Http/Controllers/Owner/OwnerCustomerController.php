@@ -6,16 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Sale;
+use App\Models\Store;
+use App\Services\DebtReminderService;
 use App\Services\OwnerScopeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Clients des boutiques du propriétaire : liste, fiche détaillée et gestion.
+ * Clients des boutiques du propriétaire : liste, fiche détaillée, gestion et relance
+ * WhatsApp des débiteurs.
  */
 class OwnerCustomerController extends Controller
 {
-    public function __construct(protected OwnerScopeService $scope)
+    /** Colonnes de la boutique utiles à la présentation d'un client (dont l'activation des relances). */
+    private const STORE_COLUMNS = 'store:id,name,whatsapp_invoices_enabled';
+
+    public function __construct(protected OwnerScopeService $scope, protected DebtReminderService $reminders)
     {
     }
 
@@ -61,7 +68,7 @@ class OwnerCustomerController extends Controller
         };
 
         $customers = $query->orderBy('customers.name')
-            ->with('store:id,name')
+            ->with(self::STORE_COLUMNS)
             ->paginate($validated['perPage'] ?? 20);
 
         return response()->json([
@@ -80,7 +87,50 @@ class OwnerCustomerController extends Controller
                 'inactive' => (int) $summary->inactive,
             ],
             'currency' => config('subscriptions.default_currency', 'XOF'),
+            'reminders_enabled' => $this->remindersEnabled($storeIds),
         ]);
+    }
+
+    /**
+     * Débiteurs du périmètre, du plus gros reste dû au plus petit, avec ce qui empêche
+     * éventuellement de les relancer : sert à préparer une relance groupée.
+     */
+    public function reminderTargets(Request $request)
+    {
+        $storeIds = $this->scope->resolve($request)['store_ids'];
+
+        $debtors = $this->withStats(Customer::query()->whereIn('customers.store_id', $storeIds))
+            ->whereRaw('COALESCE(bal.balance_due, 0) > 0')
+            ->orderByRaw('bal.balance_due DESC')
+            ->orderBy('customers.name')
+            ->with(self::STORE_COLUMNS)
+            ->limit(500)
+            ->get();
+
+        return response()->json([
+            'data' => $debtors->map(fn ($c) => $this->present($c)),
+            'batch_size' => max(1, (int) config('services.waha.reminder_batch_size')),
+            'cooldown_hours' => $this->reminders->cooldownHours(),
+            'currency' => config('subscriptions.default_currency', 'XOF'),
+        ]);
+    }
+
+    /**
+     * Relance un client débiteur sur WhatsApp. 422 = relance sans objet (rien à payer, numéro
+     * inexploitable, déjà relancé…), 502 = l'envoi a échoué (`fatal` : le service est en panne).
+     */
+    public function remind(Request $request, $id)
+    {
+        $storeIds = $this->scope->resolve($request->merge(['store_id' => null]))['store_ids'];
+        $customer = Customer::with('store')->whereIn('store_id', $storeIds)->findOrFail($id);
+
+        $result = $this->reminders->remind($customer, $request->user());
+
+        return response()->json($result, match ($result['status']) {
+            'sent' => 200,
+            'skipped' => 422,
+            default => 502,
+        });
     }
 
     /**
@@ -146,7 +196,7 @@ class OwnerCustomerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Client « ' . $customer->name . ' » ajouté.',
-            'data' => $this->present($customer->load('store:id,name')),
+            'data' => $this->present($customer->load(self::STORE_COLUMNS)),
         ], 201);
     }
 
@@ -169,7 +219,7 @@ class OwnerCustomerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Client mis à jour.',
-            'data' => $this->present($customer->fresh()->load('store:id,name')),
+            'data' => $this->present($customer->fresh()->load(self::STORE_COLUMNS)),
         ]);
     }
 
@@ -192,7 +242,7 @@ class OwnerCustomerController extends Controller
         ]);
     }
 
-    /** Ajoute aux clients leurs achats validés et leur reste dû. */
+    /** Ajoute aux clients leurs achats validés, leur reste dû et la date de leur dernière relance. */
     private function withStats($query)
     {
         $salesStats = DB::table('sales')
@@ -210,9 +260,15 @@ class OwnerCustomerController extends Controller
             ->groupBy('customer_id')
             ->selectRaw('customer_id, SUM(balance) AS balance_due, COUNT(*) FILTER (WHERE balance > 0) AS open_invoices');
 
+        $reminders = DB::table('customer_reminders')
+            ->where('status', 'sent')
+            ->groupBy('customer_id')
+            ->selectRaw('customer_id, MAX(created_at) AS last_reminded_at');
+
         return $query
             ->leftJoinSub($salesStats, 'stats', 'stats.customer_id', '=', 'customers.id')
             ->leftJoinSub($balances, 'bal', 'bal.customer_id', '=', 'customers.id')
+            ->leftJoinSub($reminders, 'rem', 'rem.customer_id', '=', 'customers.id')
             ->select(
                 'customers.*',
                 'stats.sales_count',
@@ -220,7 +276,8 @@ class OwnerCustomerController extends Controller
                 'stats.last_purchase_at',
                 'stats.first_purchase_at',
                 'bal.balance_due',
-                'bal.open_invoices'
+                'bal.open_invoices',
+                'rem.last_reminded_at'
             );
     }
 
@@ -229,7 +286,14 @@ class OwnerCustomerController extends Controller
     {
         $storeIds = $this->scope->stores($request->user())->pluck('id');
 
-        return Customer::with('store:id,name')->whereIn('store_id', $storeIds)->findOrFail($id);
+        return Customer::with(self::STORE_COLUMNS)->whereIn('store_id', $storeIds)->findOrFail($id);
+    }
+
+    /** Au moins une boutique du périmètre peut relancer ses clients sur WhatsApp. */
+    private function remindersEnabled(array $storeIds): bool
+    {
+        return Store::whereIn('id', $storeIds)->get(['id', 'whatsapp_invoices_enabled'])
+            ->contains(fn (Store $s) => $this->reminders->enabledFor($s));
     }
 
     private function assertOwnedStore(Request $request, $storeId): void
@@ -258,6 +322,9 @@ class OwnerCustomerController extends Controller
 
     private function present($c): array
     {
+        $balance = (float) ($c->balance_due ?? 0);
+        $lastReminder = $c->last_reminded_at ? Carbon::parse($c->last_reminded_at) : null;
+
         return [
             'id' => $c->id,
             'name' => $c->name,
@@ -267,9 +334,14 @@ class OwnerCustomerController extends Controller
             'store' => $c->store ? ['id' => $c->store->id, 'name' => $c->store->name] : null,
             'sales_count' => (int) ($c->sales_count ?? 0),
             'total_purchases' => (float) ($c->total_purchases ?? 0),
-            'balance_due' => (float) ($c->balance_due ?? 0),
+            'balance_due' => $balance,
             'open_invoices' => (int) ($c->open_invoices ?? 0),
             'last_purchase_at' => $c->last_purchase_at ? substr($c->last_purchase_at, 0, 10) : null,
+            // Relance WhatsApp : `blocker` null = le client peut être relancé maintenant
+            'reminder' => [
+                'blocker' => $this->reminders->blocker($c->store, $c->phone, $balance, $lastReminder),
+                'last_at' => $lastReminder?->toIso8601String(),
+            ],
         ];
     }
 }

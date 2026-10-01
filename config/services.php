@@ -34,6 +34,10 @@ return [
         'api_key' => (string) env('WAHA_API_KEY', ''),
         'session' => (string) env('WAHA_SESSION', 'default'),
         'timeout' => (int) env('WAHA_TIMEOUT', 20),
+        // Relances des clients débiteurs : délai minimal entre deux relances d'un même client,
+        // et nombre de clients relancés par lot (le numéro d'envoi est commun à toutes les boutiques)
+        'reminder_cooldown_hours' => (int) env('WAHA_REMINDER_COOLDOWN_HOURS', 24),
+        'reminder_batch_size' => (int) env('WAHA_REMINDER_BATCH_SIZE', 50),
     ],
 
     'slack' => [

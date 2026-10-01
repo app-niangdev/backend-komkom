@@ -3,12 +3,13 @@
 namespace App\Services;
 
 use App\Support\WhatsappNumber;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * Client minimal de WAHA (WhatsApp HTTP API) : envoi d'un fichier à un numéro.
+ * Client minimal de WAHA (WhatsApp HTTP API) : envoi d'un texte ou d'un fichier à un numéro.
  * Configuration : `services.waha` (WAHA_BASE_URL, WAHA_API_KEY, WAHA_SESSION).
  */
 class WahaService
@@ -27,20 +28,30 @@ class WahaService
     }
 
     /**
+     * Envoie un message texte.
+     *
+     * @throws RuntimeException|RequestException
+     */
+    public function sendText(string $chatId, string $text): array
+    {
+        return $this->client()
+            ->post('/api/sendText', [
+                'session' => config('services.waha.session'),
+                'chatId' => $chatId,
+                'text' => $text,
+            ])
+            ->throw()
+            ->json() ?? [];
+    }
+
+    /**
      * Envoie un fichier (contenu binaire, transmis en base64) avec une légende.
      *
      * @throws RuntimeException|RequestException
      */
     public function sendFile(string $chatId, string $content, string $filename, string $mimetype, ?string $caption = null): array
     {
-        if (!$this->isConfigured()) {
-            throw new RuntimeException('WAHA n\'est pas configuré (WAHA_BASE_URL / WAHA_API_KEY).');
-        }
-
-        return Http::baseUrl(config('services.waha.base_url'))
-            ->withHeaders(['X-Api-Key' => config('services.waha.api_key')])
-            ->acceptJson()
-            ->timeout(config('services.waha.timeout'))
+        return $this->client()
             ->post('/api/sendFile', [
                 'session' => config('services.waha.session'),
                 'chatId' => $chatId,
@@ -55,5 +66,17 @@ class WahaService
             ])
             ->throw()
             ->json() ?? [];
+    }
+
+    private function client(): PendingRequest
+    {
+        if (!$this->isConfigured()) {
+            throw new RuntimeException('WAHA n\'est pas configuré (WAHA_BASE_URL / WAHA_API_KEY).');
+        }
+
+        return Http::baseUrl(config('services.waha.base_url'))
+            ->withHeaders(['X-Api-Key' => config('services.waha.api_key')])
+            ->acceptJson()
+            ->timeout(config('services.waha.timeout'));
     }
 }

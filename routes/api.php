@@ -181,6 +181,9 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         Route::put('/serials/{id}', [OwnerSerialController::class, 'update'])->whereNumber('id');
         Route::get('/categories', [OwnerCatalogController::class, 'categories']);
         Route::get('/customers', [OwnerCustomerController::class, 'index']);
+        // Relance WhatsApp des débiteurs (propriétaire et gérant ; le vendeur n'y a pas accès)
+        Route::get('/customers/reminder-targets', [OwnerCustomerController::class, 'reminderTargets']);
+        Route::post('/customers/{id}/remind', [OwnerCustomerController::class, 'remind'])->whereNumber('id')->middleware('throttle:40,1');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show']);
         Route::post('/customers', [OwnerCustomerController::class, 'store']);
         Route::put('/customers/{id}', [OwnerCustomerController::class, 'update']);
