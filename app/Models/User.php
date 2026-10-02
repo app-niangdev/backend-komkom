@@ -30,6 +30,7 @@ class User extends Authenticatable implements CanResetPassword, HasMedia
         'email',
         'password',
         'must_change_password',
+        'locale',
         'status',
         'role_id',
         'type',

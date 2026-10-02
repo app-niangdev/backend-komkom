@@ -57,6 +57,25 @@ class ProfileController extends Controller
         ]);
     }
 
+    /** Langue d'affichage du compte : retrouvée à la connexion sur n'importe quel appareil. */
+    public function updateLocale(Request $request)
+    {
+        $validated = $request->validate([
+            'locale' => 'required|string|in:fr,ar',
+        ], [
+            'locale.required' => 'La langue est obligatoire.',
+            'locale.in' => 'Cette langue n\'est pas disponible.',
+        ]);
+
+        $request->user()->update(['locale' => $validated['locale']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Langue mise à jour.',
+            'locale' => $validated['locale'],
+        ]);
+    }
+
     public function updatePassword(Request $request)
     {
         $validated = $request->validate([

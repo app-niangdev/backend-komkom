@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'role_id' => $this->role_id,
             'status' => $this->status,
             'must_change_password' => (bool) $this->must_change_password,
+            'locale' => $this->locale,
             'current_team_id' => $this->current_team_id,
             'image_path' => $this->image_path,
             'type' => $this->type,

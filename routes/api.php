@@ -112,6 +112,7 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
     Route::prefix('profile')->group(function () {
         Route::get('/', [ProfileController::class, 'show']);
         Route::put('/contacts', [ProfileController::class, 'updateContacts']);
+        Route::put('/locale', [ProfileController::class, 'updateLocale']);
         Route::put('/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:5,1');
     });
 
