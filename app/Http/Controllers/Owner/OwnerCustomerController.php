@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\Quote;
 use App\Models\Sale;
 use App\Models\Store;
 use App\Services\DebtReminderService;
@@ -227,10 +228,11 @@ class OwnerCustomerController extends Controller
     {
         $customer = $this->find($request, $id);
 
-        if (Sale::where('customer_id', $customer->id)->exists() || Invoice::where('customer_id', $customer->id)->exists()) {
+        if (Sale::where('customer_id', $customer->id)->exists() || Invoice::where('customer_id', $customer->id)->exists()
+            || Quote::where('customer_id', $customer->id)->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ce client a des ventes ou des factures : il ne peut pas être supprimé.',
+                'message' => 'Ce client a des ventes, des factures ou des devis : il ne peut pas être supprimé.',
             ], 422);
         }
 

@@ -23,6 +23,7 @@ use App\Http\Controllers\Owner\OwnerExpenseController;
 use App\Http\Controllers\Owner\OwnerInvoiceController;
 use App\Http\Controllers\Owner\OwnerPaymentController;
 use App\Http\Controllers\Owner\OwnerPosController;
+use App\Http\Controllers\Owner\OwnerQuoteController;
 use App\Http\Controllers\Owner\OwnerProductController;
 use App\Http\Controllers\Owner\OwnerSerialController;
 use App\Http\Controllers\Owner\OwnerSaleController;
@@ -168,6 +169,17 @@ Route::middleware(['auth:jwt', 'subscription'])->group(function () {
         Route::get('/invoices/{id}', [OwnerInvoiceController::class, 'show'])->whereNumber('id');
         Route::post('/invoices/{id}/payments', [OwnerInvoiceController::class, 'pay'])->whereNumber('id');
         Route::post('/invoices/{id}/whatsapp', [OwnerInvoiceController::class, 'whatsapp'])->whereNumber('id')->middleware('throttle:20,1');
+        // Devis : document indépendant des ventes (ni stock, ni facture) ; le vendeur n'y a pas accès
+        Route::get('/quotes', [OwnerQuoteController::class, 'index']);
+        Route::post('/quotes', [OwnerQuoteController::class, 'store']);
+        Route::get('/quotes/{id}', [OwnerQuoteController::class, 'show'])->whereNumber('id');
+        Route::put('/quotes/{id}', [OwnerQuoteController::class, 'update'])->whereNumber('id');
+        Route::delete('/quotes/{id}', [OwnerQuoteController::class, 'destroy'])->whereNumber('id');
+        Route::post('/quotes/{id}/duplicate', [OwnerQuoteController::class, 'duplicate'])->whereNumber('id');
+        Route::post('/quotes/{id}/mark-sent', [OwnerQuoteController::class, 'markSent'])->whereNumber('id');
+        Route::post('/quotes/{id}/decision', [OwnerQuoteController::class, 'decide'])->whereNumber('id');
+        Route::post('/quotes/{id}/whatsapp', [OwnerQuoteController::class, 'whatsapp'])->whereNumber('id')->middleware('throttle:20,1');
+        Route::get('/quotes/{id}/pdf', [OwnerQuoteController::class, 'pdf'])->whereNumber('id');
         Route::get('/products', [OwnerCatalogController::class, 'products']);
         Route::post('/products', [OwnerProductController::class, 'store']);
         Route::get('/products/{id}', [OwnerProductController::class, 'show'])->whereNumber('id');
